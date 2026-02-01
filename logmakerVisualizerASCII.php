@@ -22,9 +22,31 @@ sort($machines);
 // Selected machine
 $selectedMachine = $_GET['machine'] ?? 'all';
 
-// Filter
-$filtered = array_values(array_filter($data, function ($row) use ($selectedMachine) {
-    return $selectedMachine === 'all' || $row['machine'] === $selectedMachine;
+// Selected time range
+$range = $_GET['range'] ?? 'all';
+
+// Convert timestamps
+foreach ($data as &$row) {
+    $row['ts'] = strtotime($row['timestamp']);
+}
+unset($row);
+
+// Time filtering
+$now = time();
+$cutoff = 0;
+
+switch ($range) {
+    case 'minute': $cutoff = $now - 60; break;
+    case 'hour':   $cutoff = $now - 3600; break;
+    case 'day':    $cutoff = $now - 86400; break;
+    case 'week':   $cutoff = $now - 604800; break;
+    default:       $cutoff = 0; break;
+}
+
+$filtered = array_values(array_filter($data, function ($row) use ($selectedMachine, $cutoff) {
+    if ($row['ts'] < $cutoff) return false;
+    if ($selectedMachine !== 'all' && $row['machine'] !== $selectedMachine) return false;
+    return true;
 }));
 
 // ASCII chart generator (dash‑only)
@@ -102,6 +124,7 @@ $chartLoad = ascii_chart($filtered, 'cpu_usage', "CPU Usage (%)");
     body { font-family: monospace; margin: 20px; }
     pre { background: #111; color: #0f0; padding: 10px; white-space: pre-wrap; }
     select, button { padding: 4px; margin: 4px; }
+    .range-buttons button { margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -118,7 +141,14 @@ $chartLoad = ascii_chart($filtered, 'cpu_usage', "CPU Usage (%)");
             </option>
         <?php endforeach; ?>
     </select>
-    <button type="submit">Update</button>
+
+    <div class="range-buttons">
+        <button name="range" value="minute">Last Minute</button>
+        <button name="range" value="hour">Last Hour</button>
+        <button name="range" value="day">Last Day</button>
+        <button name="range" value="week">Last Week</button>
+        <button name="range" value="all">All Time</button>
+    </div>
 </form>
 
 <pre><?= htmlspecialchars($chartCpu . $chartRam . $chartLoad) ?></pre>
