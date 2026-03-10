@@ -1,1 +1,1 @@
-
+sudo apt install gcc git wget mc curl nano sshfs htop iotop neofetch nmap rsync p7zip-full tmux unzip cron iputils-ping micro resolvconf smartmontools btop net-tools openssh-server ncdu lm-sensors
