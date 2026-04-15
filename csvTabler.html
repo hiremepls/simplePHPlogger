@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local CSV Table with Sort & Filter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            cursor: pointer;
+            position: relative;
+        }
+        th:hover {
+            background-color: #e6e6e6;
+        }
+        th.sort-asc::after {
+            content: " ↑";
+        }
+        th.sort-desc::after {
+            content: " ↓";
+        }
+        .search {
+            margin-bottom: 10px;
+            padding: 8px;
+            width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="fileInput" accept=".csv">
+    <input type="text" id="search" class="search" placeholder="Search all columns...">
+    <table id="csvTable">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let currentData = [];
+        let currentHeaders = [];
+        let sortColumn = null;
+        let sortDirection = 1; // 1 for asc, -1 for desc
+
+        // Parse CSV with support for quoted fields and newlines
+        function parseCSV(csv) {
+            const lines = [];
+            let currentLine = [];
+            let inQuotes = false;
+            let currentField = '';
+
+            for (let i = 0; i < csv.length; i++) {
+                const char = csv[i];
+
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    currentLine.push(currentField);
+                    currentField = '';
+                } else if (char === '\n' && !inQuotes) {
+                    currentLine.push(currentField);
+                    lines.push(currentLine);
+                    currentLine = [];
+                    currentField = '';
+                    continue;
+                } else {
+                    currentField += char;
+                }
+            }
+            // Push the last field and line
+            currentLine.push(currentField);
+            lines.push(currentLine);
+
+            // Extract headers and data
+            currentHeaders = lines[0];
+            currentData = lines.slice(1);
+
+            // Render table
+            renderTable(currentHeaders, currentData);
+        }
+
+        // Render table with headers and data
+        function renderTable(headers, data) {
+            const table = document.getElementById('csvTable');
+            const thead = table.querySelector('thead');
+            const tbody = table.querySelector('tbody');
+
+            // Clear previous data
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            // Create headers
+            const headerRow = document.createElement('tr');
+            headers.forEach((header, i) => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                th.dataset.column = i;
+                th.addEventListener('click', () => sortTable(i));
+                if (i === sortColumn) {
+                    th.classList.add(sortDirection === 1 ? 'sort-asc' : 'sort-desc');
+                }
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Create data rows
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Sort table by column
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection *= -1; // Toggle direction
+            } else {
+                sortColumn = column;
+                sortDirection = 1;
+            }
+
+            currentData.sort((a, b) => {
+                const aValue = a[column] || '';
+                const bValue = b[column] || '';
+                return aValue.localeCompare(bValue, undefined, { numeric: true }) * sortDirection;
+            });
+
+            renderTable(currentHeaders, currentData);
+        }
+
+        // Filter table by search term
+        function filterTable() {
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            if (!searchTerm) {
+                renderTable(currentHeaders, currentData);
+                return;
+            }
+
+            const filteredData = currentData.filter(row =>
+                row.some(cell =>
+                    cell.toString().toLowerCase().includes(searchTerm)
+                )
+            );
+            renderTable(currentHeaders, filteredData);
+        }
+
+        // Load CSV file
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parseCSV(e.target.result);
+            };
+            reader.readAsText(file);
+        });
+
+        // Search as you type
+        document.getElementById('search').addEventListener('keyup', filterTable);
+    </script>
+</body>
+</html>
